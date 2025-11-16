@@ -1,0 +1,9 @@
+# Ignore all files to prevent conflicts with ESLint Rocketseat
+**/*.ts
+**/*.tsx
+**/*.js
+**/*.jsx
+
+# Keep only config files if needed
+!*.config.js
+!*.config.ts
