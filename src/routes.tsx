@@ -4,16 +4,21 @@ import { DashboardPage } from './pages/dashboard'
 import { ProfilePage } from './pages/profile'
 import { SignInPage } from './pages/signin'
 import { TransactionsPage } from './pages/transactions'
+import { AuthenticatedLayout } from './components/layout'
 
 export function Router() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/transactions" element={<TransactionsPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/signin" element={<SignInPage />} />
+
+        {/* Protected Routes */}
+        <Route element={<AuthenticatedLayout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   )

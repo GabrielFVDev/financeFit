@@ -1,16 +1,13 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { useAuth } from '@/context/AuthContext'
+import { Button } from '@/components/ui/button/button'
 import { ArrowLeftIcon, FilterIcon, PlusIcon, EditIcon, TrashIcon } from 'lucide-react'
 import type { Transaction } from './interface'
 
 
 export function TransactionsPage() {
-    const { user, logout } = useAuth()
-    const navigate = useNavigate()
     const [transactions, setTransactions] = useState<Transaction[]>([
         {
             id: '1',
@@ -69,11 +66,6 @@ export function TransactionsPage() {
         category: '',
         date: new Date().toISOString().split('T')[0]
     })
-
-    const handleLogout = () => {
-        logout()
-        navigate('/')
-    }
 
     const addTransaction = (e: React.FormEvent) => {
         e.preventDefault()
@@ -169,29 +161,6 @@ export function TransactionsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <header className="bg-white shadow-sm border-b">
-                <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-                    <div className="flex items-center space-x-4">
-                        <Link to="/dashboard">
-                            <Button variant="outline" size="sm">
-                                <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                                Dashboard
-                            </Button>
-                        </Link>
-                        <h1 className="text-2xl font-bold">Transações</h1>
-                    </div>
-                    <div className="flex gap-4">
-                        <Link to="/profile">
-                            <Button variant="outline">Perfil</Button>
-                        </Link>
-                        <Button onClick={handleLogout} variant="outline">
-                            Sair
-                        </Button>
-                    </div>
-                </div>
-            </header>
-
             <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
                 {/* Resumo */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -1,15 +1,12 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/button/button'
 import { Input } from '@/components/ui/input'
-import { useAuth } from '@/context/AuthContext'
 import { PlusIcon, TrendingUpIcon, TrendingDownIcon, DollarSignIcon } from 'lucide-react'
 import type { Transaction } from './interface'
 
 export function DashboardPage() {
-    const { user, logout } = useAuth()
-    const navigate = useNavigate()
     const [showAddTransaction, setShowAddTransaction] = useState(false)
     const [transactions, setTransactions] = useState<Transaction[]>([
         {
@@ -45,11 +42,6 @@ export function DashboardPage() {
         category: ''
     })
 
-    const handleLogout = () => {
-        logout()
-        navigate('/')
-    }
-
     const addTransaction = (e: React.FormEvent) => {
         e.preventDefault()
         const transaction: Transaction = {
@@ -77,24 +69,6 @@ export function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <header className="bg-white shadow-sm border-b">
-                <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold">💸 FinanceFit</h1>
-                        <p className="text-gray-600">Olá, {user?.name}!</p>
-                    </div>
-                    <div className="flex gap-4">
-                        <Link to="/profile">
-                            <Button variant="outline">Perfil</Button>
-                        </Link>
-                        <Button onClick={handleLogout} variant="outline">
-                            Sair
-                        </Button>
-                    </div>
-                </div>
-            </header>
-
             <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
                 {/* Resumo Financeiro */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

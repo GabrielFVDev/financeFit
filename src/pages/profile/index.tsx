@@ -1,24 +1,16 @@
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { useAuth } from '@/context/AuthContext'
-import { ArrowLeftIcon, UserIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button/button'
+import { UserIcon } from 'lucide-react'
 
 export function ProfilePage() {
-    const { user, logout } = useAuth()
-    const navigate = useNavigate()
     const [isEditing, setIsEditing] = useState(false)
     const [formData, setFormData] = useState({
-        name: user?.name || '',
-        email: user?.email || ''
+        name: '',
+        email: ''
     })
-
-    const handleLogout = () => {
-        logout()
-        navigate('/')
-    }
 
     const handleSave = () => {
         console.log('Salvando dados:', formData)
@@ -28,23 +20,6 @@ export function ProfilePage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <header className="bg-white shadow-sm border-b">
-                <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-                    <div className="flex items-center space-x-4">
-                        <Link to="/dashboard">
-                            <Button variant="outline" size="sm">
-                                <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                                Voltar
-                            </Button>
-                        </Link>
-                        <h1 className="text-2xl font-bold">Meu Perfil</h1>
-                    </div>
-                    <Button onClick={handleLogout} variant="outline">
-                        Sair
-                    </Button>
-                </div>
-            </header>
-
             <main className="max-w-4xl mx-auto px-4 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <Card>
@@ -89,7 +64,7 @@ export function ProfilePage() {
                                             variant="outline"
                                             onClick={() => {
                                                 setIsEditing(false)
-                                                setFormData({ name: user?.name || '', email: user?.email || '' })
+                                                setFormData({ name: '', email: '' })
                                             }}
                                         >
                                             Cancelar
