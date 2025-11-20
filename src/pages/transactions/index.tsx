@@ -1,390 +1,414 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button/button'
-import { ArrowLeftIcon, FilterIcon, PlusIcon, EditIcon, TrashIcon } from 'lucide-react'
-import type { Transaction } from './interface'
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button/button';
+import { FilterIcon, PlusIcon, EditIcon, TrashIcon } from 'lucide-react';
+import type { Transaction } from './interface';
+import { useAuth } from '@/context/AuthContext';
 
+interface Category {
+    categoriaId: number;
+    nome: string;
+}
 
 export function TransactionsPage() {
-    const [transactions, setTransactions] = useState<Transaction[]>([
-        {
-            id: '1',
-            type: 'income',
-            description: 'Salário',
-            amount: 5000,
-            date: '2024-11-16',
-            category: 'Salário'
-        },
-        {
-            id: '2',
-            type: 'expense',
-            description: 'Supermercado',
-            amount: 250,
-            date: '2024-11-15',
-            category: 'Alimentação'
-        },
-        {
-            id: '3',
-            type: 'expense',
-            description: 'Gasolina',
-            amount: 120,
-            date: '2024-11-14',
-            category: 'Transporte'
-        },
-        {
-            id: '4',
-            type: 'expense',
-            description: 'Conta de luz',
-            amount: 180,
-            date: '2024-11-13',
-            category: 'Contas'
-        },
-        {
-            id: '5',
-            type: 'income',
-            description: 'Freelance',
-            amount: 800,
-            date: '2024-11-12',
-            category: 'Trabalho'
-        }
-    ])
+    const {
+        user,
+        fetchTransactions,
+        createExpense,
+        createRevenue,
+        updateExpense,
+        updateRevenue,
+        deleteExpense,
+        deleteRevenue,
+        fetchCategories,
+        createCategory
+    } = useAuth();
+
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [showCategoryForm, setShowCategoryForm] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
 
     const [filter, setFilter] = useState({
         type: 'all',
         category: '',
         month: ''
-    })
+    });
 
-    const [showAddForm, setShowAddForm] = useState(false)
-    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [newTransaction, setNewTransaction] = useState({
-        type: 'expense' as 'income' | 'expense',
-        description: '',
-        amount: '',
-        category: '',
-        date: new Date().toISOString().split('T')[0]
-    })
+        tipo: 'DESPESA' as 'RECEITA' | 'DESPESA',
+        descricao: '',
+        valor: '',
+        idCategoria: '',
+        data: new Date().toISOString().split('T')[0]
+    });
 
-    const addTransaction = (e: React.FormEvent) => {
-        e.preventDefault()
-        const transaction: Transaction = {
-            id: Date.now().toString(),
-            type: newTransaction.type,
-            description: newTransaction.description,
-            amount: parseFloat(newTransaction.amount),
-            date: newTransaction.date,
-            category: newTransaction.category
+    const loadData = useCallback(async () => {
+        if (!user) return;
+        setLoading(true);
+        try {
+            const [fetchedTransactions, fetchedCategories] = await Promise.all([
+                fetchTransactions(user.id),
+                fetchCategories()
+            ]);
+            setTransactions(fetchedTransactions);
+            setCategories(fetchedCategories);
+        } catch (err) {
+            setError('Falha ao carregar os dados. Tente novamente mais tarde.');
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
-        setTransactions([transaction, ...transactions])
-        setNewTransaction({
-            type: 'expense',
-            description: '',
-            amount: '',
-            category: '',
-            date: new Date().toISOString().split('T')[0]
-        })
-        setShowAddForm(false)
-    }
+    }, [user, fetchTransactions, fetchCategories]);
 
-    const updateTransaction = (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!editingTransaction) return
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
-        const updatedTransaction = {
-            ...editingTransaction,
-            type: newTransaction.type,
-            description: newTransaction.description,
-            amount: parseFloat(newTransaction.amount),
-            date: newTransaction.date,
-            category: newTransaction.category
+    const handleCreateCategory = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newCategoryName.trim()) {
+            alert('Digite um nome para a categoria');
+            return;
         }
 
-        setTransactions(transactions.map(t =>
-            t.id === editingTransaction.id ? updatedTransaction : t
-        ))
-        setEditingTransaction(null)
-        setNewTransaction({
-            type: 'expense',
-            description: '',
-            amount: '',
-            category: '',
-            date: new Date().toISOString().split('T')[0]
-        })
-    }
+        try {
+            const newCategory = await createCategory(newCategoryName.trim());
+            if (newCategory) {
+                setCategories([...categories, newCategory]);
+                // Seleciona automaticamente a categoria recém-criada
+                setNewTransaction({ ...newTransaction, idCategoria: newCategory.categoriaId.toString() });
+                setNewCategoryName('');
+                setShowCategoryForm(false);
+                alert('Categoria criada com sucesso!');
+            } else {
+                alert('Erro ao criar categoria. Tente novamente.');
+            }
+        } catch (err) {
+            console.error('Erro ao criar categoria:', err);
+            alert('Erro ao criar categoria. Tente novamente.');
+        }
+    };
 
-    const deleteTransaction = (id: string) => {
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user) return;
+
+        const payload = {
+            idUsuario: parseInt(user.id, 10),
+            valor: parseFloat(newTransaction.valor),
+            descricao: newTransaction.descricao,
+            data: newTransaction.data,
+            idCategoria: newTransaction.idCategoria ? parseInt(newTransaction.idCategoria, 10) : undefined,
+        };
+
+        try {
+            if (editingTransaction) {
+                // Update
+                if (editingTransaction.tipo === 'DESPESA') {
+                    await updateExpense(editingTransaction.id, payload);
+                } else {
+                    await updateRevenue(editingTransaction.id, payload);
+                }
+            } else {
+                // Create
+                if (newTransaction.tipo === 'DESPESA') {
+                    if (!payload.idCategoria) {
+                        alert("Categoria é obrigatória para despesas.");
+                        return;
+                    }
+                    await createExpense({ ...payload, idCategoria: payload.idCategoria, tipo: 'DESPESA' });
+                } else {
+                    await createRevenue({ ...payload, tipo: 'RECEITA' });
+                }
+            }
+
+            resetForm();
+
+            // Aguardar um pouco para o backend processar
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Recarregar todas as transações
+            await loadData();
+
+            alert(editingTransaction ? 'Transação atualizada com sucesso!' : 'Transação adicionada com sucesso!');
+        } catch (error) {
+            console.error("Failed to submit transaction:", error);
+            alert("Ocorreu um erro ao salvar a transação.");
+        }
+    };
+
+    const handleDelete = async (transaction: Transaction) => {
         if (window.confirm('Tem certeza que deseja excluir esta transação?')) {
-            setTransactions(transactions.filter(t => t.id !== id))
+            try {
+                if (transaction.tipo === 'DESPESA') {
+                    await deleteExpense(transaction.id);
+                } else {
+                    await deleteRevenue(transaction.id);
+                }
+
+                // Aguardar um pouco para o backend processar
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                await loadData();
+                alert('Transação excluída com sucesso!');
+            } catch (error) {
+                console.error("Failed to delete transaction:", error);
+                alert("Ocorreu um erro ao excluir a transação.");
+            }
         }
-    }
+    };
 
     const startEdit = (transaction: Transaction) => {
-        setEditingTransaction(transaction)
+        setEditingTransaction(transaction);
         setNewTransaction({
-            type: transaction.type,
-            description: transaction.description,
-            amount: transaction.amount.toString(),
-            category: transaction.category,
-            date: transaction.date
-        })
-        setShowAddForm(true)
-    }
+            tipo: transaction.tipo,
+            descricao: transaction.descricao,
+            valor: transaction.valor.toString(),
+            idCategoria: transaction.categoria?.categoriaId.toString() ?? '',
+            data: transaction.data,
+        });
+        setShowAddForm(true);
+    };
 
-    const cancelEdit = () => {
-        setEditingTransaction(null)
+    const resetForm = () => {
+        setEditingTransaction(null);
         setNewTransaction({
-            type: 'expense',
-            description: '',
-            amount: '',
-            category: '',
-            date: new Date().toISOString().split('T')[0]
-        })
-        setShowAddForm(false)
-    }
+            tipo: 'DESPESA',
+            descricao: '',
+            valor: '',
+            idCategoria: '',
+            data: new Date().toISOString().split('T')[0],
+        });
+        setShowAddForm(false);
+    };
 
     const filteredTransactions = transactions.filter(transaction => {
-        if (filter.type !== 'all' && transaction.type !== filter.type) return false
-        if (filter.category && !transaction.category.toLowerCase().includes(filter.category.toLowerCase())) return false
-        if (filter.month && !transaction.date.startsWith(filter.month)) return false
-        return true
-    })
+        if (filter.type !== 'all' && transaction.tipo.toLowerCase() !== filter.type) return false;
+        if (filter.category && !transaction.categoria?.nome.toLowerCase().includes(filter.category.toLowerCase())) return false;
+        if (filter.month && !transaction.data.startsWith(filter.month)) return false;
+        return true;
+    });
 
     const totalIncome = filteredTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .filter(t => t.tipo === 'RECEITA')
+        .reduce((sum, t) => sum + t.valor, 0);
 
     const totalExpense = filteredTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .filter(t => t.tipo === 'DESPESA')
+        .reduce((sum, t) => sum + t.valor, 0);
+
+    if (loading) return <div className="text-center py-10">Carregando transações...</div>;
+    if (error) return <div className="text-center py-10 text-red-500">{error}</div>;
 
     return (
         <div className="min-h-screen bg-gray-50">
             <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-                {/* Resumo */}
+                {/* Summary */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Receitas</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-600">
-                                R$ {totalIncome.toFixed(2).replace('.', ',')}
-                            </div>
-                        </CardContent>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Receitas</CardTitle></CardHeader>
+                        <CardContent><div className="text-2xl font-bold text-green-600">R$ {totalIncome.toFixed(2).replace('.', ',')}</div></CardContent>
                     </Card>
-
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Despesas</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-red-600">
-                                R$ {totalExpense.toFixed(2).replace('.', ',')}
-                            </div>
-                        </CardContent>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Despesas</CardTitle></CardHeader>
+                        <CardContent><div className="text-2xl font-bold text-red-600">R$ {totalExpense.toFixed(2).replace('.', ',')}</div></CardContent>
                     </Card>
-
                     <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Saldo</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className={`text-2xl font-bold ${(totalIncome - totalExpense) >= 0 ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                R$ {(totalIncome - totalExpense).toFixed(2).replace('.', ',')}
-                            </div>
-                        </CardContent>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Saldo</CardTitle></CardHeader>
+                        <CardContent><div className={`text-2xl font-bold ${(totalIncome - totalExpense) >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {(totalIncome - totalExpense).toFixed(2).replace('.', ',')}</div></CardContent>
                     </Card>
                 </div>
 
-                {/* Filtros */}
+                {/* Filters */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                            <FilterIcon className="h-5 w-5" />
-                            <span>Filtros</span>
-                        </CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle className="flex items-center space-x-2"><FilterIcon className="h-5 w-5" /><span>Filtros</span></CardTitle></CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="text-sm font-medium mb-1 block">Tipo</label>
-                                <select
-                                    value={filter.type}
-                                    onChange={(e) => setFilter({ ...filter, type: e.target.value })}
-                                    className="w-full p-2 border rounded-md"
-                                >
+                                <select value={filter.type} onChange={(e) => setFilter({ ...filter, type: e.target.value })} className="w-full p-2 border rounded-md">
                                     <option value="all">Todos</option>
-                                    <option value="income">Receitas</option>
-                                    <option value="expense">Despesas</option>
+                                    <option value="receita">Receitas</option>
+                                    <option value="despesa">Despesas</option>
                                 </select>
                             </div>
                             <div>
                                 <label className="text-sm font-medium mb-1 block">Categoria</label>
-                                <Input
-                                    placeholder="Filtrar por categoria"
-                                    value={filter.category}
-                                    onChange={(e) => setFilter({ ...filter, category: e.target.value })}
-                                />
+                                <Input placeholder="Filtrar por categoria" value={filter.category} onChange={(e) => setFilter({ ...filter, category: e.target.value })} />
                             </div>
                             <div>
                                 <label className="text-sm font-medium mb-1 block">Mês</label>
-                                <Input
-                                    type="month"
-                                    value={filter.month}
-                                    onChange={(e) => setFilter({ ...filter, month: e.target.value })}
-                                />
+                                <Input type="month" value={filter.month} onChange={(e) => setFilter({ ...filter, month: e.target.value })} />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Lista de Transações */}
+                {/* Transactions List */}
                 <Card>
                     <CardHeader>
                         <div className="flex justify-between items-center">
                             <div>
                                 <CardTitle>Todas as Transações</CardTitle>
-                                <CardDescription>
-                                    {filteredTransactions.length} transação(ões) encontrada(s)
-                                </CardDescription>
+                                <CardDescription>{filteredTransactions.length} transação(ões) encontrada(s)</CardDescription>
                             </div>
-                            <Button onClick={() => setShowAddForm(!showAddForm)}>
+                            <Button onClick={() => { setShowAddForm(true); setEditingTransaction(null); }}>
                                 <PlusIcon className="h-4 w-4 mr-2" />
                                 Nova Transação
                             </Button>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Formulário */}
                         {showAddForm && (
-                            <form
-                                onSubmit={editingTransaction ? updateTransaction : addTransaction}
-                                className="p-4 border rounded-lg space-y-4 bg-gray-50"
-                            >
-                                <div className="flex justify-between items-center">
-                                    <h3 className="font-medium">
-                                        {editingTransaction ? 'Editar Transação' : 'Nova Transação'}
-                                    </h3>
-                                    <Button type="button" variant="outline" onClick={cancelEdit}>
-                                        Cancelar
-                                    </Button>
-                                </div>
-
+                            <form onSubmit={handleSubmit} className="p-4 border rounded-lg space-y-4 bg-gray-50">
+                                <h3 className="font-medium">{editingTransaction ? 'Editar Transação' : 'Nova Transação'}</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-sm font-medium mb-1 block">Tipo</label>
-                                        <select
-                                            value={newTransaction.type}
-                                            onChange={(e) => setNewTransaction({ ...newTransaction, type: e.target.value as 'income' | 'expense' })}
-                                            className="w-full p-2 border rounded-md"
-                                        >
-                                            <option value="expense">Despesa</option>
-                                            <option value="income">Receita</option>
+                                        <select value={newTransaction.tipo} onChange={(e) => setNewTransaction({ ...newTransaction, tipo: e.target.value as 'RECEITA' | 'DESPESA' })} className="w-full p-2 border rounded-md">
+                                            <option value="DESPESA">Despesa</option>
+                                            <option value="RECEITA">Receita</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium mb-1 block">Data</label>
-                                        <Input
-                                            type="date"
-                                            value={newTransaction.date}
-                                            onChange={(e) => setNewTransaction({ ...newTransaction, date: e.target.value })}
-                                            required
-                                        />
+                                        <Input type="date" value={newTransaction.data} onChange={(e) => setNewTransaction({ ...newTransaction, data: e.target.value })} required />
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-sm font-medium mb-1 block">Categoria</label>
-                                        <Input
-                                            placeholder="Ex: Alimentação, Salário..."
-                                            value={newTransaction.category}
-                                            onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
-                                            required
-                                        />
+                                        {categories.length === 0 ? (
+                                            <div className="space-y-2">
+                                                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                                                    ⚠️ Nenhuma categoria cadastrada. Crie uma categoria primeiro!
+                                                </div>
+                                                {!showCategoryForm ? (
+                                                    <Button
+                                                        type="button"
+                                                        onClick={() => setShowCategoryForm(true)}
+                                                        className="w-full"
+                                                        variant="outline"
+                                                    >
+                                                        <PlusIcon className="h-4 w-4 mr-2" />
+                                                        Criar Categoria
+                                                    </Button>
+                                                ) : (
+                                                    <form onSubmit={handleCreateCategory} className="flex gap-2">
+                                                        <Input
+                                                            placeholder="Nome da categoria"
+                                                            value={newCategoryName}
+                                                            onChange={(e) => setNewCategoryName(e.target.value)}
+                                                            required
+                                                        />
+                                                        <Button type="submit">Salvar</Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setShowCategoryForm(false);
+                                                                setNewCategoryName('');
+                                                            }}
+                                                        >
+                                                            Cancelar
+                                                        </Button>
+                                                    </form>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <select
+                                                    value={newTransaction.idCategoria}
+                                                    onChange={(e) => setNewTransaction({ ...newTransaction, idCategoria: e.target.value })}
+                                                    className="w-full p-2 border rounded-md"
+                                                    required={newTransaction.tipo === 'DESPESA'}
+                                                >
+                                                    <option value="">Selecione uma categoria</option>
+                                                    {categories.map(cat => <option key={cat.categoriaId} value={cat.categoriaId}>{cat.nome}</option>)}
+                                                </select>
+                                                {!showCategoryForm ? (
+                                                    <Button
+                                                        type="button"
+                                                        onClick={() => setShowCategoryForm(true)}
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="w-full"
+                                                    >
+                                                        <PlusIcon className="h-3 w-3 mr-1" />
+                                                        Nova Categoria
+                                                    </Button>
+                                                ) : (
+                                                    <form onSubmit={handleCreateCategory} className="flex gap-2">
+                                                        <Input
+                                                            placeholder="Nome da categoria"
+                                                            value={newCategoryName}
+                                                            onChange={(e) => setNewCategoryName(e.target.value)}
+                                                            required
+                                                        />
+                                                        <Button type="submit" size="sm">Salvar</Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setShowCategoryForm(false);
+                                                                setNewCategoryName('');
+                                                            }}
+                                                        >
+                                                            ✕
+                                                        </Button>
+                                                    </form>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
                                         <label className="text-sm font-medium mb-1 block">Valor</label>
-                                        <Input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0,00"
-                                            value={newTransaction.amount}
-                                            onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                                            required
-                                        />
+                                        <Input type="number" step="0.01" placeholder="0,00" value={newTransaction.valor} onChange={(e) => setNewTransaction({ ...newTransaction, valor: e.target.value })} required />
                                     </div>
                                 </div>
-
                                 <div>
                                     <label className="text-sm font-medium mb-1 block">Descrição</label>
-                                    <Input
-                                        placeholder="Descrição da transação"
-                                        value={newTransaction.description}
-                                        onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
-                                        required
-                                    />
+                                    <Input placeholder="Descrição da transação" value={newTransaction.descricao} onChange={(e) => setNewTransaction({ ...newTransaction, descricao: e.target.value })} required />
                                 </div>
-
-                                <Button type="submit">
-                                    {editingTransaction ? 'Atualizar' : 'Adicionar'}
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button type="submit">{editingTransaction ? 'Atualizar' : 'Adicionar'}</Button>
+                                    <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
+                                </div>
                             </form>
                         )}
-
-                        {/* Lista */}
                         <div className="space-y-2">
                             {filteredTransactions.map((transaction) => (
                                 <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                                     <div className="flex items-center space-x-4">
-                                        <div className={`w-3 h-3 rounded-full ${transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'
-                                            }`} />
+                                        <div className={`w-3 h-3 rounded-full ${transaction.tipo === 'RECEITA' ? 'bg-green-500' : 'bg-red-500'}`} />
                                         <div>
-                                            <p className="font-medium">{transaction.description}</p>
-                                            <p className="text-sm text-gray-600">
-                                                {transaction.category} • {new Date(transaction.date).toLocaleDateString('pt-BR')}
-                                            </p>
+                                            <p className="font-medium">{transaction.descricao}</p>
+                                            <p className="text-sm text-gray-600">{transaction.categoria?.nome || 'Sem Categoria'} • {new Date(transaction.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
                                         </div>
                                     </div>
-
                                     <div className="flex items-center space-x-4">
-                                        <div className={`font-bold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                                            }`}>
-                                            {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toFixed(2).replace('.', ',')}
+                                        <div className={`font-bold ${transaction.tipo === 'RECEITA' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {transaction.tipo === 'RECEITA' ? '+' : '-'}R$ {transaction.valor.toFixed(2).replace('.', ',')}
                                         </div>
-
                                         <div className="flex space-x-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => startEdit(transaction)}
-                                            >
-                                                <EditIcon className="h-3 w-3" />
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => deleteTransaction(transaction.id)}
-                                            >
-                                                <TrashIcon className="h-3 w-3" />
-                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={() => startEdit(transaction)}><EditIcon className="h-3 w-3" /></Button>
+                                            <Button variant="destructive" size="sm" onClick={() => handleDelete(transaction)}><TrashIcon className="h-3 w-3" /></Button>
                                         </div>
                                     </div>
                                 </div>
                             ))}
-
-                            {filteredTransactions.length === 0 && (
-                                <div className="text-center py-8 text-gray-500">
-                                    Nenhuma transação encontrada com os filtros aplicados.
-                                </div>
-                            )}
+                            {filteredTransactions.length === 0 && <div className="text-center py-8 text-gray-500">Nenhuma transação encontrada.</div>}
                         </div>
                     </CardContent>
                 </Card>
             </main>
         </div>
-    )
+    );
 }

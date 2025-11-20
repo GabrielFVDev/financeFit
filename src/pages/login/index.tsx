@@ -16,8 +16,9 @@ export function LoginPage() {
         try {
             await login(email, password)
             navigate('/dashboard')
-        } catch (error) {
-            alert('Erro no login. Tente novamente.')
+        } catch (error: any) {
+            const errorMessage = error.response?.data?.message || 'Erro no login. Verifique suas credenciais.';
+            alert(errorMessage);
         }
     }
 

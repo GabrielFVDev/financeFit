@@ -1,16 +1,17 @@
-
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button/button'
+import api from '@/services/api' // Import the API service
 
 export function SignInPage() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        metaMensal: 0
     })
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
@@ -25,12 +26,25 @@ export function SignInPage() {
 
         setLoading(true)
         try {
-            // Simular API call
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            const response = await api.post('/api/auth/register', {
+                nome: formData.name,
+                email: formData.email,
+                senha: formData.password,
+                metaMensal: formData.metaMensal
+            })
+            
+            // Assuming the API returns a token and user info on successful registration
+            const { token, email, nome } = response.data;
+            localStorage.setItem('token', token);
+            localStorage.setItem('userEmail', email);
+            localStorage.setItem('userName', nome);
+
             alert('Conta criada com sucesso! Faça login para continuar.')
             navigate('/')
-        } catch (error) {
-            alert('Erro ao criar conta. Tente novamente.')
+        } catch (error: any) {
+            console.error('Registration failed:', error); // Log the full error
+            const errorMessage = error.response?.data?.message || 'Erro ao criar conta. Tente novamente.';
+            alert(errorMessage);
         } finally {
             setLoading(false)
         }
@@ -98,6 +112,20 @@ export function SignInPage() {
                                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                                 required
                                 minLength={6}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label htmlFor="metaMensal" className="text-sm font-medium">
+                                Meta Mensal
+                            </label>
+                            <Input
+                                id="metaMensal"
+                                type="number"
+                                placeholder="0.00"
+                                value={formData.metaMensal}
+                                onChange={(e) => setFormData({ ...formData, metaMensal: parseFloat(e.target.value) })}
+                                required
+                                min={0}
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={loading}>
