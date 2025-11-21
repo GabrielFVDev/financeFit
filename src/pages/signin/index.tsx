@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button/button'
+import { Eye, EyeOff } from 'lucide-react'
 import api from '@/services/api' // Import the API service
 
 export function SignInPage() {
@@ -15,6 +16,7 @@ export function SignInPage() {
     })
     const [loading, setLoading] = useState(false)
     const navigate = useNavigate()
+    const [showPassword, setShowPassword] = useState(false)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -32,7 +34,7 @@ export function SignInPage() {
                 senha: formData.password,
                 metaMensal: formData.metaMensal
             })
-            
+
             // Assuming the API returns a token and user info on successful registration
             const { token, email, nome } = response.data;
             localStorage.setItem('token', token);
@@ -41,9 +43,10 @@ export function SignInPage() {
 
             alert('Conta criada com sucesso! Faça login para continuar.')
             navigate('/')
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Registration failed:', error); // Log the full error
-            const errorMessage = error.response?.data?.message || 'Erro ao criar conta. Tente novamente.';
+            const axiosError = error as { response?: { data?: { message?: string } } };
+            const errorMessage = axiosError.response?.data?.message || 'Erro ao criar conta. Tente novamente.';
             alert(errorMessage);
         } finally {
             setLoading(false)
@@ -90,29 +93,49 @@ export function SignInPage() {
                             <label htmlFor="password" className="text-sm font-medium">
                                 Senha
                             </label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="••••••••"
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                required
-                                minLength={6}
-                            />
+                            <div className="relative">
+                                <Input
+                                    id="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    required
+                                    minLength={6}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(v => !v)}
+                                    aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                                >
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <label htmlFor="confirmPassword" className="text-sm font-medium">
                                 Confirmar senha
                             </label>
-                            <Input
-                                id="confirmPassword"
-                                type="password"
-                                placeholder="••••••••"
-                                value={formData.confirmPassword}
-                                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                required
-                                minLength={6}
-                            />
+                            <div className="relative">
+                                <Input
+                                    id="confirmPassword"
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    value={formData.confirmPassword}
+                                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                    required
+                                    minLength={6}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(v => !v)}
+                                    aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+                                >
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <label htmlFor="metaMensal" className="text-sm font-medium">

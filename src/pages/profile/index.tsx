@@ -1,21 +1,75 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button/button'
 import { UserIcon } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
 
 export function ProfilePage() {
+    const navigate = useNavigate()
+    const { user, updateUser, deleteAccount, fetchUserData } = useAuth()
     const [isEditing, setIsEditing] = useState(false)
     const [formData, setFormData] = useState({
         name: '',
         email: ''
     })
 
-    const handleSave = () => {
-        console.log('Salvando dados:', formData)
-        setIsEditing(false)
-        alert('Dados atualizados com sucesso!')
+    useEffect(() => {
+        const loadUserData = async () => {
+            if (user?.id) {
+                const data = await fetchUserData(user.id)
+                if (data) {
+                    setFormData({
+                        name: data.name,
+                        email: data.email
+                    })
+                }
+            }
+        }
+        loadUserData()
+    }, [user, fetchUserData])
+
+    const handleSave = async () => {
+        if (!user) return
+
+        const success = await updateUser({
+            nome: formData.name,
+            email: formData.email
+        })
+
+        if (success) {
+            setIsEditing(false)
+            alert('Dados atualizados com sucesso!')
+            // Recarregar dados
+            const data = await fetchUserData(user.id)
+            if (data) {
+                setFormData({
+                    name: data.name,
+                    email: data.email
+                })
+            }
+        } else {
+            alert('Erro ao atualizar dados. Tente novamente.')
+        }
+    }
+
+    const handleDeleteAccount = async () => {
+        if (!user) return
+
+        const confirmed = window.confirm(
+            'Tem certeza que deseja excluir sua conta? Esta ação é irreversível e todos os seus dados serão perdidos.'
+        )
+
+        if (confirmed) {
+            const success = await deleteAccount()
+            if (success) {
+                alert('Conta excluída com sucesso.')
+                navigate('/')
+            } else {
+                alert('Erro ao excluir conta. Tente novamente.')
+            }
+        }
     }
 
     return (
@@ -79,23 +133,25 @@ export function ProfilePage() {
 
                     <Card>
                         <CardHeader>
-                            <CardTitle>Estatísticas da Conta</CardTitle>
+                            <CardTitle>Zona de Perigo</CardTitle>
                             <CardDescription>
-                                Resumo da sua atividade
+                                Ações irreversíveis
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-sm font-medium">Conta criada em:</span>
-                                <span className="text-sm text-gray-600">16/11/2024</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-sm font-medium">Total de transações:</span>
-                                <span className="text-sm text-gray-600">3</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-sm font-medium">Último acesso:</span>
-                                <span className="text-sm text-gray-600">Hoje</span>
+                            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                <h3 className="font-semibold text-red-800 mb-2">Excluir Conta</h3>
+                                <p className="text-sm text-red-600 mb-4">
+                                    Ao excluir sua conta, todos os seus dados serão permanentemente removidos.
+                                    Esta ação não pode ser desfeita.
+                                </p>
+                                <Button
+                                    variant="destructive"
+                                    onClick={handleDeleteAccount}
+                                    className="w-full"
+                                >
+                                    Excluir Conta Permanentemente
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>

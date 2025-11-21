@@ -53,6 +53,8 @@ interface AuthContextType {
     logout: () => void;
     loading: boolean;
     fetchUserData: (userId: string) => Promise<User | null>;
+    updateUser: (data: { nome?: string; email?: string }) => Promise<boolean>;
+    deleteAccount: () => Promise<boolean>;
     fetchGeneralSummary: (userId: string) => Promise<FinancialSummary | null>;
     fetchSummaryByPeriod: (userId: string, month: number, year: number) => Promise<FinancialSummary | null>;
     createCategory: (categoryName: string) => Promise<Category | null>;
@@ -122,15 +124,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const { token, email: userEmail, nome: userName } = response.data;
 
-            // After successful login, fetch the user ID
+            // CRITICAL: Save token BEFORE making any authenticated requests
+            localStorage.setItem('token', token);
+            localStorage.setItem('userEmail', userEmail);
+            localStorage.setItem('userName', userName);
+
+            // After successful login and token save, fetch the user ID
             const userId = await getUserIdByEmail(userEmail);
             if (!userId) {
                 throw new Error("Failed to retrieve user ID after login.");
             }
 
-            localStorage.setItem('token', token);
-            localStorage.setItem('userEmail', userEmail);
-            localStorage.setItem('userName', userName);
             localStorage.setItem('userId', userId);
 
             setUser({ id: userId, name: userName, email: userEmail });
@@ -159,6 +163,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
             console.error('Erro ao buscar dados do usuário:', error);
             return null;
+        }
+    };
+
+    const updateUser = async (data: { nome?: string; email?: string }): Promise<boolean> => {
+        try {
+            console.log('📤 Atualizando usuário:', data);
+            await api.patch('/usuarios/me', data);
+
+            // Atualizar dados locais
+            if (user) {
+                const updatedUser = { ...user };
+                if (data.nome) {
+                    updatedUser.name = data.nome;
+                    localStorage.setItem('userName', data.nome);
+                }
+                if (data.email) {
+                    updatedUser.email = data.email;
+                    localStorage.setItem('userEmail', data.email);
+                }
+                setUser(updatedUser);
+            }
+
+            console.log('✅ Usuário atualizado com sucesso');
+            return true;
+        } catch (error) {
+            console.error('❌ Erro ao atualizar usuário:', error);
+            return false;
+        }
+    };
+
+    const deleteAccount = async (): Promise<boolean> => {
+        try {
+            console.log('📤 Deletando conta do usuário autenticado');
+            await api.delete('/usuarios/me');
+
+            // Fazer logout após deletar
+            logout();
+
+            console.log('✅ Conta deletada com sucesso');
+            return true;
+        } catch (error) {
+            console.error('❌ Erro ao deletar conta:', error);
+            return false;
         }
     };
 
@@ -351,6 +398,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         loading,
         fetchUserData,
+        updateUser,
+        deleteAccount,
         fetchGeneralSummary,
         fetchSummaryByPeriod,
         createCategory,
